@@ -1,0 +1,6 @@
+{
+  "name": "CareerLink Zambia",
+  "description": "The premier job board and advanced career portal for Zambia. Browse jobs, optimize your resume, and practice for interviews with our smart career assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
