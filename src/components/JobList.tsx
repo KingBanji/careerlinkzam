@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Search, MapPin, Building2, DollarSign, Clock, ArrowRight, Briefcase, AlertCircle, Bookmark, CheckCircle2, Send, X } from "lucide-react";
+import { Search, MapPin, Building2, DollarSign, Clock, ArrowRight, Briefcase, AlertCircle, Bookmark, CheckCircle2, Send, X, BrainCircuit } from "lucide-react";
 import { Job } from "../types";
 import { initAuth, googleSignIn, sendGmailMessage } from "../lib/gmailAuth";
+import FeaturedAndNewsletter from "./FeaturedAndNewsletter";
+import CareerNewsTrends from "./CareerNewsTrends";
 
 interface JobListProps {
   onOptimizeForJob: (job: Job) => void;
@@ -9,6 +11,7 @@ interface JobListProps {
   savedJobs: string[];
   toggleSaveJob: (id: string) => void;
   addAppliedJob: (id: string, jobTitle: string, company: string) => void;
+  onOpenAiSuite?: () => void;
 }
 
 const SECTORS = ["All Sectors", "Mining", "Financial Services", "NGOs", "Agriculture", "Tech", "Health", "Education"];
@@ -16,8 +19,16 @@ const LOCATIONS = ["All Locations", "Lusaka", "Solwezi", "Ndola", "Kitwe", "Livi
 const EXPERIENCE_LEVELS = ["All Levels", "Entry", "Mid", "Senior", "Executive"];
 const JOB_TYPES = ["All Types", "Full-time", "Part-time", "Contract", "Internship"];
 
-export default function JobList({ onOptimizeForJob, onPracticeForJob, savedJobs, toggleSaveJob, addAppliedJob }: JobListProps) {
+export default function JobList({ onOptimizeForJob, onPracticeForJob, savedJobs, toggleSaveJob, addAppliedJob, onOpenAiSuite }: JobListProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [localToast, setLocalToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (localToast) {
+      const t = setTimeout(() => setLocalToast(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [localToast]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,10 +140,10 @@ export default function JobList({ onOptimizeForJob, onPracticeForJob, savedJobs,
 
     if (gmailConnected && sendViaGmail) {
       // Construct email parameters
-      const subject = `Job Application: ${selectedJob.title} at ${selectedJob.company} (via CareerLinkZambia)`;
+      const subject = `Job Application: ${selectedJob.title} at ${selectedJob.company} (via www.careerlinkjobzambia.com)`;
       const body = `Dear Hiring Team at ${selectedJob.company},
 
-Please find my application for the ${selectedJob.title} position, submitted via CareerLinkZambia.
+Please find my application for the ${selectedJob.title} position, submitted via CareerLink Zambia (www.careerlinkjobzambia.com).
 
 My Profile Details:
 - Name: ${applicantName}
@@ -144,7 +155,7 @@ ${attachedResume || "No additional resume details were provided."}
 
 Best regards,
 ${applicantName}
-Sent securely via CareerLinkZambia & Google Workspace integration.`;
+Sent securely via CareerLink Zambia (www.careerlinkjobzambia.com) & Google Workspace integration.`;
 
       // Workspace API Rule: Confirmation before sending email
       const confirmed = window.confirm(
@@ -197,14 +208,23 @@ Sent securely via CareerLinkZambia & Google Workspace integration.`;
       {/* Hero Header Section */}
       <div className="relative rounded-3xl bg-brand-green overflow-hidden shadow-sm" id="hero-banner">
         <div className="relative max-w-5xl mx-auto px-6 py-10 md:py-14 text-center z-10">
+          <div className="flex justify-center mb-5" id="hero-logo-wrapper">
+            <img 
+              src="/images/CareerLink%20Zambia%20logo%20design.png" 
+              alt="CareerLink Zambia Logo" 
+              className="h-16 w-auto object-contain bg-white/10 backdrop-blur-xs p-2 rounded-2xl border border-white/20 shadow-xs" 
+              referrerPolicy="no-referrer"
+              id="hero-logo-img"
+            />
+          </div>
           <span className="inline-block font-mono text-brand-orange-light text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase mb-3">
             Ten provinces · one seam of opportunity
           </span>
-          <h1 className="text-3xl md:text-5xl font-display font-bold text-white tracking-tight leading-tight mb-4">
-            Find work that moves Zambia forward.
+          <h1 className="text-3xl md:text-5xl font-sans font-normal text-white tracking-tight leading-tight mb-4">
+            this is where Zambian employers and job seekers meet no middlemen, no noise.
           </h1>
           <p className="text-sm md:text-base text-brand-bg-alt/90 max-w-2xl mx-auto mb-6">
-            From Solwezi's copper pits to Livingstone's riverfront lodges, this is where Zambian employers and job seekers meet — no middlemen, no noise.
+            From Solwezi's copper pits to Livingstone's riverfront lodges, find work that moves Zambia forward.
           </p>
 
           {/* Quick Search Bar inside Hero */}
@@ -231,23 +251,34 @@ Sent securely via CareerLinkZambia & Google Workspace integration.`;
         </div>
 
         {/* Highlight Stats Bar */}
-        <div className="relative bg-brand-orange px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center z-10">
+        <div className="relative bg-brand-orange px-6 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4 text-center items-center z-10">
           <div>
-            <span className="text-2xl font-display font-extrabold text-brand-green-dark">{jobs.length || 14}</span>
+            <span className="text-xl md:text-2xl font-display font-extrabold text-brand-green-dark">{jobs.length || 14}</span>
             <p className="text-[10px] uppercase tracking-wider text-brand-green-dark/85 font-mono font-semibold">open positions</p>
           </div>
           <div>
-            <span className="text-2xl font-display font-extrabold text-brand-green-dark">{new Set(jobs.map(j => j.company)).size || 12}</span>
+            <span className="text-xl md:text-2xl font-display font-extrabold text-brand-green-dark">{new Set(jobs.map(j => j.company)).size || 12}</span>
             <p className="text-[10px] uppercase tracking-wider text-brand-green-dark/85 font-mono font-semibold">employers hiring</p>
           </div>
           <div>
-            <span className="text-2xl font-display font-extrabold text-brand-green-dark">10</span>
+            <span className="text-xl md:text-2xl font-display font-extrabold text-brand-green-dark">10</span>
             <p className="text-[10px] uppercase tracking-wider text-brand-green-dark/85 font-mono font-semibold">provinces covered</p>
           </div>
           <div>
-            <span className="text-2xl font-display font-extrabold text-brand-green-dark">100%</span>
+            <span className="text-xl md:text-2xl font-display font-extrabold text-brand-green-dark">100%</span>
             <p className="text-[10px] uppercase tracking-wider text-brand-green-dark/85 font-mono font-semibold">Zambian Roles</p>
           </div>
+          <button 
+            onClick={onOpenAiSuite}
+            className="flex flex-col items-center justify-center cursor-pointer group transition-transform hover:scale-105 active:scale-95 col-span-2 sm:col-span-1"
+            id="tracker-bantu-ai-suite"
+          >
+            <span className="text-xl md:text-2xl font-display font-extrabold text-brand-green-dark flex items-center justify-center gap-1.5">
+              <BrainCircuit className="h-5 w-5 text-brand-green-dark animate-pulse shrink-0" />
+              Bantu AI
+            </span>
+            <p className="text-[10px] uppercase tracking-wider text-brand-green-dark/85 font-mono font-bold group-hover:underline">Launch Suite</p>
+          </button>
         </div>
       </div>
 
@@ -472,16 +503,16 @@ Sent securely via CareerLinkZambia & Google Workspace integration.`;
                 <p className="text-xs text-brand-bg-alt/95 leading-relaxed font-medium">
                   Boost your chances! Instantly optimize your resume or run a tailored mock interview for this specific position using Bantu's professional tools.
                 </p>
-                <div className="flex space-x-2 pt-1.5">
+                <div className="flex flex-col sm:flex-row gap-2 pt-1.5">
                   <button
                     onClick={() => onOptimizeForJob(selectedJob)}
-                    className="flex-1 bg-white hover:bg-brand-bg-alt text-brand-green text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs"
+                    className="w-full sm:flex-1 bg-white hover:bg-brand-bg-alt text-brand-green text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs"
                   >
                     Optimize My Resume
                   </button>
                   <button
                     onClick={() => onPracticeForJob(selectedJob)}
-                    className="flex-1 bg-brand-orange hover:bg-brand-orange-light text-white text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs"
+                    className="w-full sm:flex-1 bg-brand-orange hover:bg-brand-orange-light text-white text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs"
                   >
                     Mock Interview Practice
                   </button>
@@ -531,6 +562,30 @@ Sent securely via CareerLinkZambia & Google Workspace integration.`;
           )}
         </div>
       </div>
+
+      {/* Live Career News & Job Market Trends from search grounding */}
+      <CareerNewsTrends />
+
+      {/* Featured Companies, Blog Posts & Premium Newsletter Subscription */}
+      <FeaturedAndNewsletter
+        onCompanySelect={(name) => {
+          setSearchQuery(name);
+          // Auto scroll to top to show filtered results
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          setLocalToast(`Filtered jobs by "${name}"`);
+        }}
+        onShowToast={(msg) => setLocalToast(msg)}
+      />
+
+      {/* Local Toast Alert */}
+      {localToast && (
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm bg-brand-green text-white px-4 py-3 rounded-xl shadow-lg border border-white/10 font-sans text-xs font-bold flex items-center justify-between space-x-3 animate-slide-in">
+          <span>{localToast}</span>
+          <button onClick={() => setLocalToast(null)} className="p-0.5 rounded-full hover:bg-white/20 text-white/80 hover:text-white">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Quick Application Modal */}
       {showApplyModal && selectedJob && (

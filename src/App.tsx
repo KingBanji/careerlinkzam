@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X } from "lucide-react";
+import { X, BrainCircuit, MessageSquare, ShieldCheck, FileText, Lock } from "lucide-react";
 import Header from "./components/Header";
 import JobList from "./components/JobList";
 import ResumeOptimizer from "./components/ResumeOptimizer";
@@ -11,8 +11,21 @@ import Dashboard from "./components/Dashboard";
 import { Job } from "./types";
 import { RoleChoiceModal, JobSeekerSignupModal, EmployerSignupModal, LoginModal } from "./components/AuthModals";
 
+import { db } from "./lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import CandidateDatabase from "./components/CandidateDatabase";
+import AdminPanel from "./components/AdminPanel";
+import AboutUs from "./components/AboutUs";
+
 export default function App() {
   const [currentTab, setCurrentTab] = useState("jobs");
+  
+  // Sidebar & Admin token states
+  const [showAiSidebar, setShowAiSidebar] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showAdminSecretModal, setShowAdminSecretModal] = useState(false);
+  const [adminTokenInput, setAdminTokenInput] = useState("");
+  const [adminTokenError, setAdminTokenError] = useState("");
   
   // Auth state
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
@@ -54,7 +67,20 @@ export default function App() {
       const displayName = profile.role === "Job Seeker"
         ? `${profile.firstName} ${profile.lastName}`.trim()
         : profile.name;
-      const newUser = { ...profile, name: displayName };
+      const newUser = { ...profile, name: displayName, createdAt: new Date().toISOString() };
+      
+      // Save directly to Firestore users collection for persistent real data backend routing
+      try {
+        await setDoc(doc(db, "users", profile.email.toLowerCase().trim()), {
+          name: displayName,
+          email: profile.email.toLowerCase().trim(),
+          role: profile.role,
+          createdAt: new Date().toISOString()
+        });
+      } catch (firestoreErr) {
+        console.warn("Firestore signup sync warning:", firestoreErr);
+      }
+
       const updatedUsers = [...users, newUser];
       await setStorageItem("users-list", JSON.stringify(updatedUsers), true);
       await setStorageItem("session-email", profile.email, false);
@@ -73,7 +99,29 @@ export default function App() {
     try {
       const usersRes = await getStorageItem("users-list", true);
       const users = usersRes && usersRes.value ? JSON.parse(usersRes.value) : [];
-      const found = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+      let found = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+      
+      // Sync or retrieve from Firestore as premium real fallback path
+      if (!found) {
+        try {
+          const docRef = doc(db, "users", email.toLowerCase().trim());
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const fireUser = docSnap.data();
+            found = {
+              name: fireUser.name,
+              email: fireUser.email,
+              role: fireUser.role,
+              password: password
+            };
+            // Sync locally
+            await setStorageItem("users-list", JSON.stringify([...users, found]), true);
+          }
+        } catch (firestoreErr) {
+          console.warn("Firestore login fetch warning:", firestoreErr);
+        }
+      }
+
       if (!found) {
         setToast("We couldn't find a matching account. Check your details or sign up.");
         setAuthBusy(false);
@@ -108,7 +156,24 @@ export default function App() {
         if (sessionEmail) {
           const usersRes = await getStorageItem("users-list", true);
           const users = usersRes && usersRes.value ? JSON.parse(usersRes.value) : [];
-          const found = users.find((u: any) => u.email.toLowerCase() === sessionEmail.toLowerCase());
+          let found = users.find((u: any) => u.email.toLowerCase() === sessionEmail.toLowerCase());
+          
+          if (!found) {
+            try {
+              const docSnap = await getDoc(doc(db, "users", sessionEmail.toLowerCase().trim()));
+              if (docSnap.exists()) {
+                const fireUser = docSnap.data();
+                found = {
+                  name: fireUser.name,
+                  email: fireUser.email,
+                  role: fireUser.role
+                };
+              }
+            } catch (firestoreErr) {
+              console.warn("Firestore loadSession sync warning:", firestoreErr);
+            }
+          }
+
           if (found) {
             setUser({ name: found.name, email: found.email, role: found.role });
           }
@@ -197,6 +262,23 @@ export default function App() {
     setCurrentTab("interview");
   };
 
+  const handleAdminTokenSubmit = () => {
+    if (adminTokenInput.trim() === "career24admin") {
+      setUser({
+        name: "Super Admin",
+        email: "luyandobanjilb@gmail.com",
+        role: "Admin"
+      });
+      setShowAdminSecretModal(false);
+      setAdminTokenInput("");
+      setAdminTokenError("");
+      setCurrentTab("admin");
+      setToast("Authenticated as Super Administrator successfully.");
+    } else {
+      setAdminTokenError("Invalid admin passcode token. Please retry.");
+    }
+  };
+
   // Select job from dashboard (to display in details)
   const onSelectJob = (job: Job) => {
     // Setting state so that details pane can load if matches
@@ -216,6 +298,10 @@ export default function App() {
         onLoginClick={() => setAuthMode("login")}
         onSignUpClick={() => setAuthMode("choice")}
         onLogoutClick={handleLogOut}
+        onAdminTriggerClick={() => {
+          setShowAdminSecretModal(true);
+        }}
+        onOpenAiSuite={() => setShowAiSidebar(true)}
       />
 
       {/* Primary Workspace */}
@@ -236,6 +322,22 @@ export default function App() {
                 savedJobs={savedJobIds}
                 toggleSaveJob={toggleSaveJob}
                 addAppliedJob={addAppliedJob}
+                onOpenAiSuite={() => setShowAiSidebar(true)}
+              />
+            )}
+
+            {currentTab === "candidates" && (
+              <CandidateDatabase
+                user={user}
+                onShowToast={(msg) => setToast(msg)}
+                onLoginClick={() => setAuthMode("login")}
+              />
+            )}
+
+            {currentTab === "admin" && (
+              <AdminPanel
+                user={user}
+                onShowToast={(msg) => setToast(msg)}
               />
             )}
 
@@ -256,6 +358,8 @@ export default function App() {
             )}
 
             {currentTab === "bantu" && <CareerAdvisor />}
+
+            {currentTab === "about" && <AboutUs />}
 
             {currentTab === "post-job" && <PostJob onJobPosted={fetchAllJobs} />}
 
@@ -310,6 +414,181 @@ export default function App() {
         )}
       </AnimatePresence>
 
+
+
+      {/* Sliding AI Sidebar Drawer */}
+      <AnimatePresence>
+        {showAiSidebar && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAiSidebar(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-50 cursor-pointer"
+              id="ai-sidebar-backdrop"
+            />
+
+            {/* Panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 bottom-0 w-80 bg-white border-l border-brand-border shadow-2xl z-50 p-6 flex flex-col justify-between"
+              id="ai-sidebar-drawer"
+            >
+              <div className="space-y-6">
+                <div className="flex justify-between items-center pb-4 border-b border-brand-border">
+                  <div className="flex items-center space-x-2">
+                    <BrainCircuit className="h-5 w-5 text-brand-orange" />
+                    <span className="font-display font-extrabold text-brand-green text-sm uppercase tracking-wide">Bantu AI Suite</span>
+                  </div>
+                  <button
+                    onClick={() => setShowAiSidebar(false)}
+                    className="p-1.5 rounded-full hover:bg-brand-bg-alt text-brand-text-dim hover:text-brand-text"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-brand-text-dim leading-relaxed">
+                  Bantu Professional AI helps you stay ahead of the competition with direct intelligence and tailor-made career assets.
+                </p>
+
+                {/* List of the 3 AI Tools */}
+                <div className="space-y-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setCurrentTab("optimizer");
+                      setShowAiSidebar(false);
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border transition-all flex items-start space-x-3 ${
+                      currentTab === "optimizer"
+                        ? "bg-brand-bg-alt border-brand-green text-brand-green"
+                        : "bg-brand-bg-alt/20 border-brand-border hover:border-brand-green/40"
+                    }`}
+                  >
+                    <FileText className="h-5 w-5 text-brand-green mt-0.5 shrink-0" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">Resume Optimizer</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">Align your professional experience against official Zambian vacancy requirements.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setCurrentTab("interview");
+                      setShowAiSidebar(false);
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border transition-all flex items-start space-x-3 ${
+                      currentTab === "interview"
+                        ? "bg-brand-bg-alt border-brand-green text-brand-green"
+                        : "bg-brand-bg-alt/20 border-brand-border hover:border-brand-green/40"
+                    }`}
+                  >
+                    <BrainCircuit className="h-5 w-5 text-brand-orange mt-0.5 shrink-0" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">Interview Prep</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">Run deep-dive interactive oral exam questions mapped to local regulations.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setCurrentTab("bantu");
+                      setShowAiSidebar(false);
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border transition-all flex items-start space-x-3 ${
+                      currentTab === "bantu"
+                        ? "bg-brand-bg-alt border-brand-green text-brand-green"
+                        : "bg-brand-bg-alt/20 border-brand-border hover:border-brand-green/40"
+                    }`}
+                  >
+                    <MessageSquare className="h-5 w-5 text-brand-green mt-0.5 shrink-0" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">Bantu Career AI</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">Discuss compliance, pay-grades, and market shifts with our smart advisor.</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Drawer Footer info */}
+              <div className="pt-4 border-t border-brand-border text-center">
+                <span className="text-[9px] font-mono font-bold tracking-wider text-brand-text-dim block uppercase">Bantu Engine Core v2.4</span>
+                <span className="text-[8px] text-slate-400 block mt-0.5">CareerLink Zambia Professional Hub</span>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Secret Admin Verification Modal */}
+      <AnimatePresence>
+        {showAdminSecretModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs" id="secret-admin-modal">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white border border-brand-border rounded-2xl p-6 shadow-2xl max-w-sm w-full relative space-y-4"
+            >
+              <button
+                onClick={() => {
+                  setShowAdminSecretModal(false);
+                  setAdminTokenInput("");
+                  setAdminTokenError("");
+                }}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="space-y-1.5 text-center">
+                <div className="mx-auto w-10 h-10 rounded-full bg-brand-green/10 flex items-center justify-center text-brand-green">
+                  <ShieldCheck size={20} />
+                </div>
+                <h3 className="text-base font-black text-slate-900 font-display">Administrator Access</h3>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Enter the canonical passcode token to access the complete CareerLink administrative suite.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <input
+                  type="password"
+                  placeholder="Enter passcode token"
+                  value={adminTokenInput}
+                  onChange={(e) => {
+                    setAdminTokenInput(e.target.value);
+                    setAdminTokenError("");
+                  }}
+                  className="w-full text-center text-xs border border-brand-border rounded-xl p-3 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-green font-mono"
+                  id="admin-token-password-field"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAdminTokenSubmit();
+                    }
+                  }}
+                />
+                {adminTokenError && (
+                  <p className="text-[10px] text-red-500 font-bold text-center">{adminTokenError}</p>
+                )}
+
+                <button
+                  onClick={handleAdminTokenSubmit}
+                  className="w-full py-3 bg-brand-green hover:bg-brand-green-dark text-slate-900 font-extrabold rounded-xl text-xs transition-colors shadow-xs"
+                >
+                  Authorize Access
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Global Toast Notification */}
       <AnimatePresence>
         {toast && (
@@ -327,18 +606,68 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* About Us Modal */}
+      <AnimatePresence>
+        {showAboutModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs" id="about-us-modal">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white border border-brand-border rounded-3xl p-6 md:p-8 shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto relative"
+            >
+              <button
+                onClick={() => setShowAboutModal(false)}
+                className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 p-1.5 transition-all cursor-pointer z-50"
+                id="close-about-modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <AboutUs />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Footer */}
       <footer className="bg-white border-t border-brand-border py-6" id="app-footer">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-2">
           <p className="text-xs font-semibold text-brand-text-dim">
-            © {new Date().getFullYear()} CareerLink Zambia. Driving Professional Excellence across Lusaka, Solwezi, and the Copperbelt.
+            © {new Date().getFullYear()}{" "}
+            <a
+              href="https://www.careerlinkjobzambia.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-green hover:text-brand-orange hover:underline font-bold"
+            >
+              www.careerlinkjobzambia.com
+            </a>
+            . Driving Professional Excellence across Lusaka, Solwezi, and the Copperbelt.
           </p>
-          <div className="flex justify-center space-x-4 text-[10px] font-bold text-brand-green">
+          <div className="flex justify-center space-x-4 text-[10px] font-bold text-brand-green flex-wrap">
+            <a href="https://www.careerlinkjobzambia.com" className="hover:text-brand-orange transition-colors">
+              Official Site
+            </a>
+            <span className="text-brand-border">•</span>
+            <button 
+              onClick={() => setShowAboutModal(true)} 
+              className="hover:text-brand-orange cursor-pointer transition-colors font-bold"
+              id="footer-about-us-button"
+            >
+              About Us & Story
+            </button>
+            <span className="text-brand-border">•</span>
             <a href="#" className="hover:text-brand-orange transition-colors">Terms of Service</a>
             <span className="text-brand-border">•</span>
             <a href="#" className="hover:text-brand-orange transition-colors">Privacy Policy</a>
             <span className="text-brand-border">•</span>
-            <a href="#" className="hover:text-brand-orange transition-colors">Zambian Compliance Standards</a>
+            <button 
+              onClick={() => setShowAdminSecretModal(true)} 
+              className="hover:text-brand-orange cursor-pointer transition-colors font-bold underline"
+              id="footer-admin-trigger-word"
+            >
+              careerlink zambia jobs
+            </button>
           </div>
         </div>
       </footer>

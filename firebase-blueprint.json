@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Real users registered as either Job Seeker or Employer",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Primary email address of user"
+        },
+        "role": {
+          "type": "string",
+          "description": "User role: 'Job Seeker' or 'Employer'"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user or company name"
+        },
+        "companyWebsite": {
+          "type": "string",
+          "description": "Company website (Employer only)"
+        },
+        "logoFileName": {
+          "type": "string",
+          "description": "Uploaded company logo name (Employer only)"
+        },
+        "headline": {
+          "type": "string",
+          "description": "Professional headline (Job Seeker only)"
+        },
+        "location": {
+          "type": "string",
+          "description": "Primary province location"
+        },
+        "resumeFileName": {
+          "type": "string",
+          "description": "File name of uploaded resume"
+        },
+        "availableForWork": {
+          "type": "boolean",
+          "description": "Whether the seeker is active"
+        },
+        "linkedinConnected": {
+          "type": "boolean",
+          "description": "Whether LinkedIn profile is linked"
+        },
+        "linkedinUrl": {
+          "type": "string",
+          "description": "LinkedIn profile URL"
+        },
+        "mediaUrl": {
+          "type": "string",
+          "description": "Path or URL to public images/videos"
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "Whether the media is an image or video"
+        },
+        "password": {
+          "type": "string",
+          "description": "Hashed or plain password"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["email", "role", "name"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Job seekers registered in the searchable Candidate Database",
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "description": "First name"
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Job seeker email address"
+        },
+        "headline": {
+          "type": "string",
+          "description": "Professional title or headline"
+        },
+        "location": {
+          "type": "string",
+          "description": "Province in Zambia"
+        },
+        "resumeFileName": {
+          "type": "string",
+          "description": "Filename of resume"
+        },
+        "availableForWork": {
+          "type": "boolean",
+          "description": "Availability status"
+        },
+        "linkedinConnected": {
+          "type": "boolean",
+          "description": "LinkedIn connected status"
+        },
+        "linkedinUrl": {
+          "type": "string",
+          "description": "LinkedIn profile URL"
+        },
+        "mediaUrl": {
+          "type": "string",
+          "description": "Public media URL"
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "Media type (image or video)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Registration time"
+        }
+      },
+      "required": ["firstName", "lastName", "email"]
+    },
+    "NewsletterSubscription": {
+      "title": "NewsletterSubscription",
+      "description": "Monthly payable newsletter plans for Job Seekers (K50) or Employers (K200)",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Subscriber email"
+        },
+        "userRole": {
+          "type": "string",
+          "description": "Plan chosen: seeker (K50) or employer (K200)"
+        },
+        "monthlyFee": {
+          "type": "number",
+          "description": "Amount paid in ZMW (K50 or K200)"
+        },
+        "paymentStatus": {
+          "type": "string",
+          "description": "Status of the subscription"
+        },
+        "mobileNumber": {
+          "type": "string",
+          "description": "Airtel / MTN money number used"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Subscription date"
+        }
+      },
+      "required": ["email", "userRole", "monthlyFee"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Real profiles registered on the Zambia Job Link platform"
+    },
+    "/candidates/{candidateId}": {
+      "schema": "Candidate",
+      "description": "The public searchable candidate list of active Zambian talent"
+    },
+    "/newsletters/{subscriptionId}": {
+      "schema": "NewsletterSubscription",
+      "description": "Newsletter premium monthly subscriptions and transactions list"
+    }
+  }
+}

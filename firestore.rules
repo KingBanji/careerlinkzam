@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 2. Rules for Users collection
+    match /users/{userId} {
+      // Allow reading user profiles if logged in
+      allow read: if isSignedIn();
+      // Allow user to write their own profile
+      allow create, update: if isSignedIn() && (userId == request.auth.uid || incoming().email == request.auth.token.email);
+      allow delete: if false;
+    }
+
+    // 3. Rules for Candidates database collection
+    match /candidates/{candidateId} {
+      // Public search of candidates is allowed
+      allow read: if true;
+      // Registered job seekers or employers can write candidate records
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // 4. Rules for Newsletter subscription collection
+    match /newsletters/{subscriptionId} {
+      // Only signed-in users (or admins) can list subscriptions
+      allow read: if isSignedIn();
+      // Anyone can create a subscription during checkout, updates allowed if signed in
+      allow create: if true;
+      allow update: if isSignedIn();
+      allow delete: if false;
+    }
+  }
+}

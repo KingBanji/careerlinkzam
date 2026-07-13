@@ -1,0 +1,3 @@
+CareerLink Zambia - Candidate Videos Folder.
+Place candidate video introductions or resumes here as MP4 files.
+Example: /videos/intro_chileshe.mp4

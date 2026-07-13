@@ -1,4 +1,4 @@
-import { Briefcase, FileText, BrainCircuit, MessageSquare, PlusCircle, User, LogOut } from "lucide-react";
+import { Briefcase, FileText, BrainCircuit, MessageSquare, PlusCircle, User, LogOut, Users, ShieldCheck, Info, Lock } from "lucide-react";
 
 interface HeaderProps {
   currentTab: string;
@@ -8,16 +8,27 @@ interface HeaderProps {
   onLoginClick: () => void;
   onSignUpClick: () => void;
   onLogoutClick: () => void;
+  onAdminTriggerClick: () => void;
+  onOpenAiSuite?: () => void;
 }
 
-export default function Header({ currentTab, setCurrentTab, savedJobsCount, user, onLoginClick, onSignUpClick, onLogoutClick }: HeaderProps) {
-  const navItems = [
+export default function Header({ 
+  currentTab, 
+  setCurrentTab, 
+  savedJobsCount, 
+  user, 
+  onLoginClick, 
+  onSignUpClick, 
+  onLogoutClick,
+  onAdminTriggerClick,
+  onOpenAiSuite
+}: HeaderProps) {
+  const navItems: { id: string; label: string; icon: any; premium?: boolean }[] = [
     { id: "jobs", label: "Find Jobs", icon: Briefcase },
-    { id: "optimizer", label: "Resume Optimizer", icon: FileText, premium: true },
-    { id: "interview", label: "Interview Prep", icon: BrainCircuit, premium: true },
-    { id: "bantu", label: "Talk to Bantu (Career Advisor)", icon: MessageSquare, premium: true },
+    { id: "candidates", label: "Candidates", icon: Users },
     { id: "post-job", label: "Post a Job", icon: PlusCircle },
-    { id: "dashboard", label: "My Career Tracker", icon: User },
+    { id: "bantu", label: "Bantu AI Suite", icon: BrainCircuit },
+    { id: "dashboard", label: "My Tracker", icon: User },
   ];
 
   return (
@@ -34,7 +45,19 @@ export default function Header({ currentTab, setCurrentTab, savedJobsCount, user
             <div>
               <span className="text-xl font-display font-bold tracking-tight text-brand-green flex items-center">
                 CareerLink<span className="text-brand-orange">Zambia</span>
-                <span className="ml-2 bg-brand-green/10 text-brand-green text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full border border-brand-green/25">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAdminTriggerClick();
+                  }}
+                  className="ml-2 p-1 text-slate-300 hover:text-brand-green bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-lg transition-all cursor-pointer"
+                  title="Admin Portal Access"
+                  id="secret-admin-trigger-logo"
+                >
+                  <Lock size={11} className="text-brand-green/75" />
+                </button>
+                <span className="ml-2 bg-brand-green/10 text-brand-green text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full border border-brand-green/25 hidden sm:inline-block">
                   Professional
                 </span>
               </span>
@@ -76,7 +99,7 @@ export default function Header({ currentTab, setCurrentTab, savedJobsCount, user
           </nav>
 
           {/* User Profile / Auth State */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3" id="user-auth-suite-container">
             {user ? (
               <div className="flex items-center space-x-2">
                 <div className="text-right hidden sm:block">
