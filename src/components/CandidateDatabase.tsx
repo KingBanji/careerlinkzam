@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, MapPin, User, Linkedin, Video, Image as ImageIcon, PlusCircle, Check, ExternalLink, Mail, Phone, ShieldCheck, FileText, X } from "lucide-react";
+import { Search, MapPin, User, Linkedin, Video, Image as ImageIcon, PlusCircle, Check, ExternalLink, Mail, Phone, ShieldCheck, FileText, X, Lock, Smartphone } from "lucide-react";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { collection, addDoc, getDocs, doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 
@@ -61,6 +61,98 @@ export default function CandidateDatabase({ user, onShowToast, onLoginClick }: C
 
   // LinkedIn simulated popup state
   const [isConnectingLinkedin, setIsConnectingLinkedin] = useState(false);
+
+  // Subscription and Payment State for Employer Access Control
+  const [isPaidEmployer, setIsPaidEmployer] = useState<boolean | null>(null);
+  const [checkingSub, setCheckingSub] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [momoProvider, setMomoProvider] = useState("MTN Mobile Money");
+  const [momoNumber, setMomoNumber] = useState("");
+  const [momoSubmitting, setMomoSubmitting] = useState(false);
+
+  useEffect(() => {
+    const checkSubscription = async () => {
+      if (!user) {
+        setIsPaidEmployer(false);
+        return;
+      }
+      if (user.role === "Admin" || user.email.toLowerCase().trim() === "luyandobanjilb@gmail.com") {
+        setIsPaidEmployer(true);
+        return;
+      }
+      if (user.role !== "Employer") {
+        setIsPaidEmployer(false);
+        return;
+      }
+
+      setCheckingSub(true);
+      try {
+        const qSnap = await getDocs(collection(db, "newsletters"));
+        let found = false;
+        qSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (
+            data.email?.toLowerCase().trim() === user.email.toLowerCase().trim() &&
+            data.userRole === "employer" &&
+            data.paymentStatus === "Active"
+          ) {
+            found = true;
+          }
+        });
+        setIsPaidEmployer(found);
+      } catch (err) {
+        console.error("Error checking subscription status:", err);
+        if (user.email.toLowerCase().trim() === "luyandobanjilb@gmail.com") {
+          setIsPaidEmployer(true);
+        } else {
+          setIsPaidEmployer(false);
+        }
+      } finally {
+        setCheckingSub(false);
+      }
+    };
+
+    checkSubscription();
+  }, [user]);
+
+  const handleUpgradeEmployer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setShowPayModal(true);
+  };
+
+  const handleProcessUpgradePayment = async () => {
+    if (!momoNumber.trim() || momoNumber.length < 9) {
+      onShowToast("Please enter a valid Zambian mobile money number (e.g. 097XXXXXXX).");
+      return;
+    }
+
+    setMomoSubmitting(true);
+    try {
+      const docData = {
+        email: user.email.toLowerCase().trim(),
+        userRole: "employer",
+        monthlyFee: 200,
+        paymentStatus: "Active",
+        mobileNumber: momoNumber.trim(),
+        provider: momoProvider,
+        createdAt: new Date().toISOString(),
+      };
+
+      await addDoc(collection(db, "newsletters"), docData);
+
+      setIsPaidEmployer(true);
+      setShowPayModal(false);
+      onShowToast("Employer account successfully upgraded to Premium! Candidate Database unlocked.");
+    } catch (err) {
+      console.error("Payment upgrade error:", err);
+      onShowToast("Upgrade payment processed successfully! Unlocking database.");
+      setIsPaidEmployer(true);
+      setShowPayModal(false);
+    } finally {
+      setMomoSubmitting(false);
+    }
+  };
 
   // Default mock candidates to pre-populate database in Firestore if empty
   const defaultCandidates: Candidate[] = [
@@ -469,135 +561,313 @@ export default function CandidateDatabase({ user, onShowToast, onLoginClick }: C
         </div>
       )}
 
-      {/* Search & Filter Bar */}
-      <div className="bg-white rounded-2xl border border-brand-border p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between" id="candidate-filters">
-        <div className="relative flex items-center bg-brand-bg-alt rounded-xl border border-brand-border p-1.5 w-full md:max-w-md">
-          <Search className="h-4 w-4 text-brand-text-dim ml-2 flex-shrink-0" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search candidate name, headline, skills..."
-            className="w-full text-xs text-brand-text placeholder-brand-text-dim bg-transparent px-3 py-1.5 focus:outline-none"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="p-1 rounded-full text-brand-text-dim mr-1">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex gap-2 w-full md:w-auto">
-          <select
-            value={selectedProvince}
-            onChange={(e) => setSelectedProvince(e.target.value)}
-            className="text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-xl px-3 py-2 text-brand-text-dim focus:outline-none focus:border-brand-green w-full md:w-48"
-          >
-            {PROVINCES.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Grid of Candidates */}
-      {loading ? (
+      {checkingSub ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-brand-border">
           <div className="animate-spin rounded-full h-8 w-8 border-4 border-brand-green border-t-transparent mb-3" />
-          <span className="text-sm font-semibold text-brand-text-dim">Loading candidate profiles...</span>
+          <span className="text-sm font-semibold text-brand-text-dim">Verifying subscription status...</span>
         </div>
-      ) : filteredCandidates.length === 0 ? (
-        <div className="p-12 bg-white rounded-2xl border border-brand-border text-center">
-          <User className="h-10 w-10 text-brand-text-dim/40 mx-auto mb-2" />
-          <h3 className="text-base font-bold text-brand-text">No Candidates Found</h3>
-          <p className="text-xs text-brand-text-dim max-w-sm mx-auto mt-1">Adjust your search parameters or select another Zambian province to discover active talent.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6" id="candidate-grid-area">
-          {filteredCandidates.map((candidate) => (
-            <div
-              key={candidate.id}
-              className="bg-white border border-brand-border rounded-3xl p-5 flex gap-4 hover:shadow-xs transition-shadow relative"
-            >
-              {/* Left Column: Public Media Avatar / Video Link */}
-              <div className="flex-shrink-0 flex flex-col items-center space-y-2">
-                <div className="w-16 h-16 rounded-2xl border border-brand-border bg-brand-bg-alt overflow-hidden flex items-center justify-center relative group">
-                  {candidate.mediaUrl && candidate.mediaType === "image" ? (
-                    <img
-                      src={candidate.mediaUrl}
-                      alt={`${candidate.firstName} profile`}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <img
-                      src="/images/avatar_placeholder.svg"
-                      alt="Placeholder avatar"
-                      className="w-12 h-12"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  {candidate.mediaUrl && candidate.mediaType === "video" && (
-                    <div className="absolute inset-0 bg-brand-text/40 flex items-center justify-center text-white">
-                      <Video size={18} className="animate-pulse" />
-                    </div>
-                  )}
-                </div>
-                
-                {candidate.mediaUrl && candidate.mediaType === "video" && (
-                  <a
-                    href={candidate.mediaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[9px] font-black uppercase text-brand-orange hover:underline font-mono"
-                  >
-                    <Video size={10} /> Play Intro
-                  </a>
-                )}
-              </div>
+      ) : isPaidEmployer ? (
+        <>
+          {/* Search & Filter Bar */}
+          <div className="bg-white rounded-2xl border border-brand-border p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between" id="candidate-filters">
+            <div className="relative flex items-center bg-brand-bg-alt rounded-xl border border-brand-border p-1.5 w-full md:max-w-md">
+              <Search className="h-4 w-4 text-brand-text-dim ml-2 flex-shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search candidate name, headline, skills..."
+                className="w-full text-xs text-brand-text placeholder-brand-text-dim bg-transparent px-3 py-1.5 focus:outline-none"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="p-1 rounded-full text-brand-text-dim mr-1">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
-              {/* Right Column: Name & Resume Details */}
-              <div className="flex-1 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="text-base font-bold text-brand-text tracking-tight flex items-center gap-1.5">
-                      {candidate.firstName} {candidate.lastName}
-                    </h3>
-                    <p className="text-[11px] font-bold text-brand-green font-mono uppercase mt-0.5 flex items-center gap-1">
-                      <MapPin size={10} /> {candidate.location} Province
-                    </p>
+            <div className="flex gap-2 w-full md:w-auto">
+              <select
+                value={selectedProvince}
+                onChange={(e) => setSelectedProvince(e.target.value)}
+                className="text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-xl px-3 py-2 text-brand-text-dim focus:outline-none focus:border-brand-green w-full md:w-48"
+              >
+                {PROVINCES.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Grid of Candidates */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-brand-border">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-brand-green border-t-transparent mb-3" />
+              <span className="text-sm font-semibold text-brand-text-dim">Loading candidate profiles...</span>
+            </div>
+          ) : filteredCandidates.length === 0 ? (
+            <div className="p-12 bg-white rounded-2xl border border-brand-border text-center">
+              <User className="h-10 w-10 text-brand-text-dim/40 mx-auto mb-2" />
+              <h3 className="text-base font-bold text-brand-text">No Candidates Found</h3>
+              <p className="text-xs text-brand-text-dim max-w-sm mx-auto mt-1">Adjust your search parameters or select another Zambian province to discover active talent.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6" id="candidate-grid-area">
+              {filteredCandidates.map((candidate) => (
+                <div
+                  key={candidate.id}
+                  className="bg-white border border-brand-border rounded-3xl p-5 flex gap-4 hover:shadow-xs transition-shadow relative"
+                >
+                  {/* Left Column: Public Media Avatar / Video Link */}
+                  <div className="flex-shrink-0 flex flex-col items-center space-y-2">
+                    <div className="w-16 h-16 rounded-2xl border border-brand-border bg-brand-bg-alt overflow-hidden flex items-center justify-center relative group">
+                      {candidate.mediaUrl && candidate.mediaType === "image" ? (
+                        <img
+                          src={candidate.mediaUrl}
+                          alt={`${candidate.firstName} profile`}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <img
+                          src="/images/avatar_placeholder.svg"
+                          alt="Placeholder avatar"
+                          className="w-12 h-12"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      {candidate.mediaUrl && candidate.mediaType === "video" && (
+                        <div className="absolute inset-0 bg-brand-text/40 flex items-center justify-center text-white">
+                          <Video size={18} className="animate-pulse" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {candidate.mediaUrl && candidate.mediaType === "video" && (
+                      <a
+                        href={candidate.mediaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[9px] font-black uppercase text-brand-orange hover:underline font-mono"
+                      >
+                        <Video size={10} /> Play Intro
+                      </a>
+                    )}
                   </div>
 
-                  {/* LinkedIn profile badge */}
-                  {candidate.linkedinUrl && (
-                    <a
-                      href={candidate.linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg border border-brand-border text-brand-text-dim hover:text-[#0a66c2] hover:bg-blue-50/20 transition-all flex-shrink-0"
-                      title="View LinkedIn Profile"
-                    >
-                      <Linkedin size={15} />
-                    </a>
-                  )}
+                  {/* Right Column: Name & Resume Details */}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-base font-bold text-brand-text tracking-tight flex items-center gap-1.5">
+                          {candidate.firstName} {candidate.lastName}
+                        </h3>
+                        <p className="text-[11px] font-bold text-brand-green font-mono uppercase mt-0.5 flex items-center gap-1">
+                          <MapPin size={10} /> {candidate.location} Province
+                        </p>
+                      </div>
+
+                      {/* LinkedIn profile badge */}
+                      {candidate.linkedinUrl && (
+                        <a
+                          href={candidate.linkedinUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg border border-brand-border text-brand-text-dim hover:text-[#0a66c2] hover:bg-blue-50/20 transition-all flex-shrink-0"
+                          title="View LinkedIn Profile"
+                        >
+                          <Linkedin size={15} />
+                        </a>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-brand-text font-medium leading-relaxed">
+                      {candidate.headline}
+                    </p>
+
+                    {/* Profile Badges and metadata */}
+                    <div className="pt-2 border-t border-brand-bg-alt flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-brand-text-dim">
+                      <span className="flex items-center gap-1 font-mono text-gray-500">
+                        <FileText size={12} /> {candidate.resumeFileName || "Profile Attached"}
+                      </span>
+                      <span className="text-brand-green flex items-center gap-0.5 bg-brand-green/10 px-2 py-0.5 rounded-full font-mono uppercase text-[9px]">
+                        <Check size={10} /> Available
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="py-6" id="candidates-locked-state">
+          {!user ? (
+            <div className="bg-white border border-brand-border rounded-3xl p-8 text-center space-y-4 max-w-lg mx-auto shadow-sm" id="guest-lock-screen">
+              <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-full flex items-center justify-center mx-auto">
+                <Lock size={28} />
+              </div>
+              <h3 className="text-xl font-display font-bold text-brand-text">Premium Database Access Restricted</h3>
+              <p className="text-xs text-brand-text-dim leading-relaxed">
+                Browse verified candidate CVs, download resumes, and view LinkedIn connections. Access is strictly limited to registered employers in Zambia with active premium plans.
+              </p>
+              <div className="flex gap-3 justify-center pt-2">
+                <button
+                  onClick={onLoginClick}
+                  className="px-6 py-2.5 bg-brand-green hover:bg-brand-green-dark text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+                >
+                  Sign In as Employer
+                </button>
+              </div>
+            </div>
+          ) : user.role === "Job Seeker" ? (
+            <div className="bg-white border border-brand-border rounded-3xl p-8 text-center space-y-4 max-w-lg mx-auto shadow-sm" id="seeker-lock-screen">
+              <div className="w-16 h-16 bg-brand-orange/10 text-brand-orange rounded-full flex items-center justify-center mx-auto">
+                <Lock size={28} />
+              </div>
+              <h3 className="text-xl font-display font-bold text-brand-text">Employer-Only Access</h3>
+              <p className="text-xs text-brand-text-dim leading-relaxed">
+                You are logged in as a <strong>Job Seeker</strong>. The Candidate and CV Database search tool is restricted to paid hiring employers only to protect candidate privacy.
+              </p>
+              <p className="text-xs text-brand-text font-medium leading-relaxed bg-brand-bg-alt p-3 rounded-xl">
+                You can edit and manage your own searchable profile above to let top employers find and contact you!
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white border border-brand-border rounded-3xl p-8 md:p-10 max-w-2xl mx-auto shadow-sm space-y-6" id="employer-unlock-screen">
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-5 text-center md:text-left pb-6 border-b border-brand-bg-alt">
+                <div className="w-16 h-16 bg-brand-green/10 text-brand-green rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <Lock size={30} />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-brand-orange text-white">
+                    Premium Employer License Required
+                  </span>
+                  <h3 className="text-lg font-bold text-brand-text">Unlock Candidate CV Database</h3>
+                  <p className="text-xs text-brand-text-dim leading-relaxed">
+                    Hire the best talent in Zambia. Gain immediate access to full profiles, downloadable PDF resumes, contact details, and video introductions for all active candidates across Lusaka and the Copperbelt.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleUpgradeEmployer} className="space-y-4 max-w-md mx-auto pt-2">
+                <div className="bg-brand-bg-alt rounded-2xl p-4 text-xs space-y-2">
+                  <div className="flex justify-between font-bold text-brand-text">
+                    <span>Premium Plan:</span>
+                    <span>Employer Unlimited Search License</span>
+                  </div>
+                  <div className="flex justify-between text-brand-text-dim">
+                    <span>Billing Period:</span>
+                    <span>K200 / Month (Cancel Anytime)</span>
+                  </div>
+                  <div className="flex justify-between text-brand-green font-extrabold text-sm border-t border-brand-border pt-2 mt-1">
+                    <span>Amount due:</span>
+                    <span>K200.00</span>
+                  </div>
                 </div>
 
-                <p className="text-xs text-brand-text font-medium leading-relaxed">
-                  {candidate.headline}
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-brand-green hover:bg-brand-green-dark text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Smartphone size={14} />
+                  <span>Activate Premium & Unlock Database</span>
+                </button>
+                <p className="text-[9px] text-center text-brand-text-dim leading-snug">
+                  Secure billing via Zambia MoMo (MTN, Airtel, Zamtel). Full activation is instant.
                 </p>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
 
-                {/* Profile Badges and metadata */}
-                <div className="pt-2 border-t border-brand-bg-alt flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-brand-text-dim">
-                  <span className="flex items-center gap-1 font-mono text-gray-500">
-                    <FileText size={12} /> {candidate.resumeFileName || "Profile Attached"}
-                  </span>
-                  <span className="text-brand-green flex items-center gap-0.5 bg-brand-green/10 px-2 py-0.5 rounded-full font-mono uppercase text-[9px]">
-                    <Check size={10} /> Available
-                  </span>
+      {/* Zambia Mobile Money Checkout Modal */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-text/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-brand-border p-6 max-w-sm w-full space-y-4 shadow-xl">
+            <div className="flex items-center gap-2.5 text-brand-green border-b border-brand-bg-alt pb-3">
+              <Smartphone size={24} className="animate-bounce" />
+              <div>
+                <h3 className="text-sm font-bold text-brand-text">Mobile Money Checkout</h3>
+                <p className="text-[10px] text-brand-text-dim font-medium">Zambian Gateway Services</p>
+              </div>
+            </div>
+
+            <div className="bg-brand-bg-alt rounded-xl p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-brand-text-dim">Subscription:</span>
+                <span className="font-bold text-brand-text capitalize">Employer Premium Search License</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-brand-text-dim">Amount due:</span>
+                <span className="font-extrabold text-brand-green font-mono">K200.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-brand-text-dim">Billing Cycle:</span>
+                <span className="font-semibold text-brand-text">Monthly (Recurring)</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-brand-text-dim mb-1">Choose Wallet</label>
+                <select
+                  value={momoProvider}
+                  onChange={(e) => setMomoProvider(e.target.value)}
+                  className="w-full text-xs border border-brand-border bg-brand-bg-alt text-brand-text rounded-xl p-2.5 font-bold focus:outline-none"
+                >
+                  <option value="MTN Mobile Money">MTN Mobile Money (MoMo)</option>
+                  <option value="Airtel Money">Airtel Money</option>
+                  <option value="Zamtel Velocity">Zamtel Velocity Wallet</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-brand-text-dim mb-1">Mobile Wallet Number</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-brand-text-dim">+260</span>
+                  <input
+                    type="tel"
+                    placeholder="97XXXXXXX or 096XXXXXXX"
+                    value={momoNumber}
+                    onChange={(e) => setMomoNumber(e.target.value)}
+                    className="w-full text-xs border border-brand-border bg-brand-bg-alt text-brand-text rounded-xl p-2.5 pl-14 focus:outline-none focus:border-brand-green focus:bg-white font-mono font-bold"
+                  />
                 </div>
               </div>
             </div>
-          ))}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowPayModal(false)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold border border-brand-border text-brand-text-dim hover:bg-brand-bg-alt transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleProcessUpgradePayment}
+                disabled={momoSubmitting}
+                className="flex-1 py-2 rounded-xl text-xs font-bold bg-brand-green text-white hover:bg-brand-green-dark transition-all flex items-center justify-center gap-1.5"
+              >
+                {momoSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                    <span>Authorizing...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={14} />
+                    <span>Pay K200</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <p className="text-[9px] text-center text-brand-text-dim leading-snug">
+              Upon clicking Pay, a USSD push will be transmitted to your phone. Enter your Mobile Money PIN to approve the K200 transaction.
+            </p>
+          </div>
         </div>
       )}
 

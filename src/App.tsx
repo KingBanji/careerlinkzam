@@ -13,6 +13,7 @@ import { RoleChoiceModal, JobSeekerSignupModal, EmployerSignupModal, LoginModal 
 
 import { db } from "./lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { googleSignIn } from "./lib/gmailAuth";
 import CandidateDatabase from "./components/CandidateDatabase";
 import AdminPanel from "./components/AdminPanel";
 import AboutUs from "./components/AboutUs";
@@ -54,6 +55,161 @@ export default function App() {
   };
 
   // Auth operations
+  async function handleGoogleAuth(forcedRole?: "Job Seeker" | "Employer") {
+    setAuthBusy(true);
+    try {
+      const res = await googleSignIn();
+      if (!res) {
+        setToast("Google login was not completed.");
+        setAuthBusy(false);
+        return;
+      }
+      const { user: googleUser } = res;
+      const email = googleUser.email?.toLowerCase().trim();
+      if (!email) {
+        setToast("Google account doesn't have a valid email.");
+        setAuthBusy(false);
+        return;
+      }
+
+      // Check if user exists in Firestore
+      const docRef = doc(db, "users", email);
+      const docSnap = await getDoc(docRef);
+      let finalUser: any = null;
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        finalUser = {
+          name: data.name || googleUser.displayName || "Google Seeker",
+          email: data.email || email,
+          role: data.role || forcedRole || "Job Seeker",
+          phone: data.phone || "",
+          headline: data.headline || "Zambian Professional Profile",
+          location: data.location || "Lusaka",
+          bio: data.bio || "",
+          availableForWork: data.availableForWork !== false,
+          resumeFileName: data.resumeFileName || "",
+        };
+      } else {
+        // Register a new Job Seeker / Employer with defaults
+        const role = forcedRole || "Job Seeker";
+        const name = googleUser.displayName || "Google Seeker";
+        finalUser = {
+          name,
+          email,
+          role,
+          phone: "",
+          headline: "Verified Google Profile",
+          location: "Lusaka",
+          bio: "Passionate professional seeking opportunities in Zambia.",
+          availableForWork: true,
+          resumeFileName: "",
+          createdAt: new Date().toISOString()
+        };
+
+        // Write directly to Firestore users collection
+        await setDoc(docRef, finalUser);
+
+        // Seed candidate database if Job Seeker
+        if (role === "Job Seeker") {
+          try {
+            const names = name.split(" ");
+            const firstName = names[0] || "Google";
+            const lastName = names.slice(1).join(" ") || "User";
+            await setDoc(doc(db, "candidates", "cand-g-" + googleUser.uid), {
+              id: "cand-g-" + googleUser.uid,
+              firstName,
+              lastName,
+              email,
+              headline: "Verified Google Profile",
+              location: "Lusaka",
+              availableForWork: true,
+              createdAt: new Date().toISOString()
+            });
+          } catch (candidateErr) {
+            console.warn("Failed to seed candidate record:", candidateErr);
+          }
+        }
+      }
+
+      // Sync with local session
+      const usersRes = await getStorageItem("users-list", true);
+      const users = usersRes && usersRes.value ? JSON.parse(usersRes.value) : [];
+      const existsIndex = users.findIndex((u: any) => u.email.toLowerCase() === email);
+      if (existsIndex > -1) {
+        users[existsIndex] = { ...users[existsIndex], ...finalUser };
+      } else {
+        users.push(finalUser);
+      }
+      await setStorageItem("users-list", JSON.stringify(users), true);
+      await setStorageItem("session-email", email, false);
+
+      setUser(finalUser);
+      setAuthMode(null);
+      setToast(`Welcome, ${finalUser.name}. Signed in via Google.`);
+    } catch (err) {
+      console.error("Google auth failure:", err);
+      setToast("Could not complete Google authentication — please try again.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleUpdateUser(updatedData: any) {
+    if (!user?.email) return;
+    try {
+      const email = user.email.toLowerCase().trim();
+      const userDocRef = doc(db, "users", email);
+      const mergedUser = {
+        ...user,
+        ...updatedData,
+        email
+      };
+
+      // Save directly to Firestore for persistent user routing
+      await setDoc(userDocRef, mergedUser, { merge: true });
+
+      // If they are a Job Seeker, also keep their searchable candidate record in sync
+      if (user.role === "Job Seeker") {
+        const names = mergedUser.name.split(" ");
+        const firstName = names[0] || "";
+        const lastName = names.slice(1).join(" ") || "";
+        const safeId = "cand-" + email.replace(/[@.]/g, "-");
+        await setDoc(doc(db, "candidates", safeId), {
+          id: safeId,
+          firstName,
+          lastName,
+          email,
+          phone: mergedUser.phone || "",
+          headline: mergedUser.headline || "Zambian Professional",
+          location: mergedUser.location || "Lusaka",
+          bio: mergedUser.bio || "",
+          availableForWork: mergedUser.availableForWork !== false,
+          resumeFileName: mergedUser.resumeFileName || "",
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+
+      // Sync with local session list
+      const usersRes = await getStorageItem("users-list", true);
+      const users = usersRes && usersRes.value ? JSON.parse(usersRes.value) : [];
+      const idx = users.findIndex((u: any) => u.email.toLowerCase() === email);
+      if (idx > -1) {
+        users[idx] = { ...users[idx], ...mergedUser };
+      } else {
+        users.push(mergedUser);
+      }
+      await setStorageItem("users-list", JSON.stringify(users), true);
+
+      setUser(mergedUser);
+      setToast("Digital profile successfully synchronized with cloud servers.");
+    } catch (err) {
+      console.error("Failed to persist profile updates:", err);
+      setToast("Failed to sync profile changes with the database.");
+      throw err;
+    }
+  }
+
   async function handleSignUp(profile: any) {
     setAuthBusy(true);
     try {
@@ -371,6 +527,8 @@ export default function App() {
                 interviewHistory={interviewHistory}
                 setCurrentTab={setCurrentTab}
                 onSelectJob={onSelectJob}
+                user={user}
+                onUpdateUser={handleUpdateUser}
               />
             )}
           </motion.div>
@@ -384,6 +542,7 @@ export default function App() {
             onClose={() => setAuthMode(null)}
             onChoose={(role) => setAuthMode(role === "Job Seeker" ? "seeker-signup" : "employer-signup")}
             onSwitchToLogin={() => setAuthMode("login")}
+            onGoogleAuth={() => handleGoogleAuth("Job Seeker")}
           />
         )}
         {authMode === "seeker-signup" && (
@@ -392,6 +551,7 @@ export default function App() {
             onBack={() => setAuthMode("choice")}
             onSwitchToLogin={() => setAuthMode("login")}
             onSignUp={handleSignUp}
+            onGoogleSignUp={() => handleGoogleAuth("Job Seeker")}
             busy={authBusy}
           />
         )}
@@ -409,6 +569,7 @@ export default function App() {
             onClose={() => setAuthMode(null)}
             onSwitchToChoice={() => setAuthMode("choice")}
             onLogIn={handleLogIn}
+            onGoogleLogin={() => handleGoogleAuth()}
             busy={authBusy}
           />
         )}

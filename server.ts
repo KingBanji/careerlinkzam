@@ -727,9 +727,10 @@ app.get("/api/career/news-trends", async (req, res) => {
 - Zambia Business Times (zambiabusinesstimes.com)
 - The Mast (themastonline.com)
 - TechTrends Zambia (techtrends.co.zm)
+- News Diggers (diggers.news)
 
 Run searches such as:
-"site:lusakatimes.com OR site:mwebantu.com OR site:daily-mail.co.zm OR site:zambiabusinesstimes.com OR site:themastonline.com career OR job OR hiring OR employment OR ZICA OR EIZ"
+"site:lusakatimes.com OR site:mwebantu.com OR site:daily-mail.co.zm OR site:diggers.news OR site:zambiabusinesstimes.com OR site:themastonline.com career OR job OR hiring OR employment OR ZICA OR EIZ"
 
 Find the most recent real-time career news, job market trends, hiring developments, and employment shifts in Zambia for the year 2026.
 Focus on:

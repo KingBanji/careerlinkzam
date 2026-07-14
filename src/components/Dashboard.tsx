@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Bookmark, CheckCircle2, Award, ClipboardList, ShieldCheck, Heart, ArrowRight, Zap, Mail, Search, RotateCw, LogOut, Eye, X } from "lucide-react";
 import { Job } from "../types";
 import { initAuth, googleSignIn, fetchGmailCorrespondence, logoutGmail, SyncedEmail } from "../lib/gmailAuth";
@@ -10,9 +10,11 @@ interface DashboardProps {
   interviewHistory: { title: string; score: number; rating: string; date: Date }[];
   setCurrentTab: (tab: string) => void;
   onSelectJob: (job: Job) => void;
+  user: { name: string; email: string; role: string; phone?: string; headline?: string; location?: string; bio?: string; availableForWork?: boolean; resumeFileName?: string } | null;
+  onUpdateUser: (updatedData: any) => Promise<void>;
 }
 
-export default function Dashboard({ appliedJobs, savedJobs, analysisHistory, interviewHistory, setCurrentTab, onSelectJob }: DashboardProps) {
+export default function Dashboard({ appliedJobs, savedJobs, analysisHistory, interviewHistory, setCurrentTab, onSelectJob, user, onUpdateUser }: DashboardProps) {
   // Gmail Sync States
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailUser, setGmailUser] = useState<any>(null);
@@ -20,6 +22,59 @@ export default function Dashboard({ appliedJobs, savedJobs, analysisHistory, int
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("CareerLink OR application OR job");
   const [selectedEmail, setSelectedEmail] = useState<SyncedEmail | null>(null);
+
+  // Profile Manager sub-tab state
+  const [activeSubTab, setActiveSubTab] = useState<"tracker" | "profile">("tracker");
+
+  // Profile Form States
+  const [profileName, setProfileName] = useState(user?.name || "");
+  const [profilePhone, setProfilePhone] = useState(user?.phone || "");
+  const [profileHeadline, setProfileHeadline] = useState(user?.headline || "");
+  const [profileLocation, setProfileLocation] = useState(user?.location || "Lusaka");
+  const [profileBio, setProfileBio] = useState(user?.bio || "");
+  const [profileAvailable, setProfileAvailable] = useState(user?.availableForWork !== false);
+  const [profileResumeName, setProfileResumeName] = useState(user?.resumeFileName || "");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState("");
+
+  const PROVINCES_LIST = [
+    "Lusaka", "Copperbelt", "North-Western", "Southern", "Central", "Eastern", "Luapula", "Muchinga", "Northern", "Western"
+  ];
+
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || "");
+      setProfilePhone(user.phone || "");
+      setProfileHeadline(user.headline || "Zambian Professional");
+      setProfileLocation(user.location || "Lusaka");
+      setProfileBio(user.bio || "");
+      setProfileAvailable(user.availableForWork !== false);
+      setProfileResumeName(user.resumeFileName || "");
+    }
+  }, [user]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileSuccess("");
+    try {
+      await onUpdateUser({
+        name: profileName,
+        phone: profilePhone,
+        headline: profileHeadline,
+        location: profileLocation,
+        bio: profileBio,
+        availableForWork: profileAvailable,
+        resumeFileName: profileResumeName
+      });
+      setProfileSuccess("Digital professional profile successfully updated.");
+      setTimeout(() => setProfileSuccess(""), 4000);
+    } catch (err) {
+      console.error("Failed to update profile", err);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   // Local checklist state for local regulations (saved in local memory)
   const [checklist, setChecklist] = useState({
@@ -101,47 +156,220 @@ export default function Dashboard({ appliedJobs, savedJobs, analysisHistory, int
   return (
     <div className="space-y-6" id="dashboard-tab">
       {/* Tab intro */}
-      <div className="border-b border-brand-border pb-4">
-        <h2 className="text-2xl font-display font-bold text-brand-green flex items-center space-x-2">
-          <ClipboardList className="h-6 w-6 text-brand-orange" />
-          <span>My Career Tracker & Dashboard</span>
-        </h2>
-        <p className="text-xs text-brand-text-dim font-semibold mt-0.5">
-          Monitor your active applications, review saved jobs, track optimization scores, and manage your local professional credentials.
-        </p>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="dashboard-stats">
-        <div className="bg-white rounded-2xl border border-brand-border p-5 shadow-xs space-y-1">
-          <span className="text-[10px] font-bold text-brand-text-dim uppercase tracking-wider block">Submitted Applications</span>
-          <p className="text-3xl font-display font-bold text-brand-green">{appliedJobs.length}</p>
-          <span className="text-[10px] text-brand-green font-bold bg-brand-green/10 px-2 py-0.5 rounded-full inline-block">
-            Directly Transmitted
-          </span>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-brand-border p-5 shadow-xs space-y-1">
-          <span className="text-[10px] font-bold text-brand-text-dim uppercase tracking-wider block">Saved Vacancies</span>
-          <p className="text-3xl font-display font-bold text-brand-orange">{savedJobs.length}</p>
-          <span className="text-[10px] text-brand-orange font-bold bg-brand-orange/10 px-2 py-0.5 rounded-full inline-block">
-            Bookmarked For Review
-          </span>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-brand-border p-5 shadow-xs space-y-1">
-          <span className="text-[10px] font-bold text-brand-text-dim uppercase tracking-wider block">Average Match Score</span>
-          <p className="text-3xl font-display font-bold text-brand-green">
-            {analysisHistory.length > 0 
-              ? Math.round(analysisHistory.reduce((acc, curr) => acc + curr.score, 0) / analysisHistory.length) + "%"
-              : "N/A"
-            }
+      <div className="border-b border-brand-border pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-display font-bold text-brand-green flex items-center space-x-2">
+            <ClipboardList className="h-6 w-6 text-brand-orange" />
+            <span>My Career Tracker & Dashboard</span>
+          </h2>
+          <p className="text-xs text-brand-text-dim font-semibold mt-0.5">
+            Monitor your active applications, review saved jobs, track optimization scores, and manage your local professional credentials.
           </p>
-          <span className="text-[10px] text-brand-green font-bold bg-brand-green/10 px-2 py-0.5 rounded-full inline-block">
-            Verified Matches
-          </span>
         </div>
+
+        {user && (
+          <div className="flex bg-brand-bg-alt p-1 rounded-xl border border-brand-border self-start md:self-auto shadow-xs">
+            <button
+              onClick={() => setActiveSubTab("tracker")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                activeSubTab === "tracker"
+                  ? "bg-brand-green text-white shadow-sm"
+                  : "text-brand-text-dim hover:text-brand-text font-semibold"
+              }`}
+            >
+              <ClipboardList className="h-4 w-4" />
+              <span>Career Tracker</span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab("profile")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                activeSubTab === "profile"
+                  ? "bg-brand-green text-white shadow-sm"
+                  : "text-brand-text-dim hover:text-brand-text font-semibold"
+              }`}
+            >
+              <User className="h-4 w-4" />
+              <span>Digital Profile</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {activeSubTab === "profile" && user ? (
+        <div className="bg-white rounded-2xl border border-brand-border p-6 sm:p-8 shadow-xs max-w-3xl mx-auto space-y-6" id="profile-manager-pane">
+          <div>
+            <h3 className="text-lg font-display font-bold text-brand-green">Edit Professional Profile</h3>
+            <p className="text-xs text-brand-text-dim mt-1 font-semibold">
+              Update your digital CV information to stand out in candidate queries and optimize resume matching scores.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveProfile} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-brand-text-dim tracking-wider">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-lg focus:outline-none focus:border-brand-green text-brand-text"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-brand-text-dim tracking-wider">Email (Locked ID)</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    disabled
+                    value={user.email}
+                    className="w-full px-3 py-2 text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-lg text-brand-text-dim/80 select-none cursor-not-allowed"
+                  />
+                  <span className="absolute right-3 top-2 text-[8px] font-mono uppercase bg-brand-green/10 text-brand-green px-1.5 py-0.5 rounded-full border border-brand-green/20">Verified</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-brand-text-dim tracking-wider">Phone Number</label>
+                <input
+                  type="tel"
+                  placeholder="+260 970 000 000"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-lg focus:outline-none focus:border-brand-green text-brand-text"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-brand-text-dim tracking-wider">Primary Location (Province)</label>
+                <select
+                  value={profileLocation}
+                  onChange={(e) => setProfileLocation(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-lg focus:outline-none focus:border-brand-green text-brand-text"
+                >
+                  {PROVINCES_LIST.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-bold text-brand-text-dim tracking-wider">Professional Headline</label>
+              <input
+                type="text"
+                placeholder="e.g. Registered Electrical Engineer | 5+ Years Experience"
+                value={profileHeadline}
+                onChange={(e) => setProfileHeadline(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-lg focus:outline-none focus:border-brand-green text-brand-text"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-bold text-brand-text-dim tracking-wider">Professional Biography & Summary</label>
+              <textarea
+                rows={4}
+                placeholder="Describe your competencies, certifications, and career goals..."
+                value={profileBio}
+                onChange={(e) => setProfileBio(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-lg focus:outline-none focus:border-brand-green text-brand-text resize-none leading-relaxed"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-brand-text-dim tracking-wider">Active Resume Attachment</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Luyando_Mwanza_CV.pdf"
+                  value={profileResumeName}
+                  onChange={(e) => setProfileResumeName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-brand-bg-alt border border-brand-border rounded-lg focus:outline-none focus:border-brand-green text-brand-text"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-brand-bg-alt rounded-xl border border-brand-border mt-5">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-brand-text">Available for work</p>
+                  <p className="text-[9px] text-brand-text-dim font-medium">Makes your profile visible in local candidate search pools</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProfileAvailable(!profileAvailable)}
+                  className="flex-shrink-0 ml-3 rounded-full transition-colors relative"
+                  style={{ width: 42, height: 22, backgroundColor: profileAvailable ? "#178A3D" : "#E4E0D6" }}
+                >
+                  <span
+                    className="rounded-full transition-all bg-white shadow-xs"
+                    style={{
+                      width: 16, height: 16, position: "absolute", top: 3,
+                      left: profileAvailable ? 23 : 3,
+                    }}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {profileSuccess && (
+              <p className="text-xs font-bold text-brand-green bg-brand-green/10 border border-brand-green/20 px-3 py-2 rounded-xl text-center">
+                ✓ {profileSuccess}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-3">
+              <button
+                type="button"
+                onClick={() => setActiveSubTab("tracker")}
+                className="px-5 py-2.5 rounded-full text-xs font-bold border border-brand-border hover:bg-brand-bg-alt text-brand-text-dim cursor-pointer"
+              >
+                Back to Tracker
+              </button>
+              <button
+                type="submit"
+                disabled={profileSaving}
+                className="px-6 py-2.5 rounded-full bg-brand-orange hover:bg-brand-orange-light text-white text-xs font-bold shadow-xs cursor-pointer active:scale-95 transition-all"
+              >
+                {profileSaving ? "Saving Profile..." : "Save Profile Details"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <>
+          {/* Stats row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="dashboard-stats">
+            <div className="bg-white rounded-2xl border border-brand-border p-5 shadow-xs space-y-1">
+              <span className="text-[10px] font-bold text-brand-text-dim uppercase tracking-wider block">Submitted Applications</span>
+              <p className="text-3xl font-display font-bold text-brand-green">{appliedJobs.length}</p>
+              <span className="text-[10px] text-brand-green font-bold bg-brand-green/10 px-2 py-0.5 rounded-full inline-block">
+                Directly Transmitted
+              </span>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-brand-border p-5 shadow-xs space-y-1">
+              <span className="text-[10px] font-bold text-brand-text-dim uppercase tracking-wider block">Saved Vacancies</span>
+              <p className="text-3xl font-display font-bold text-brand-orange">{savedJobs.length}</p>
+              <span className="text-[10px] text-brand-orange font-bold bg-brand-orange/10 px-2 py-0.5 rounded-full inline-block">
+                Bookmarked For Review
+              </span>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-brand-border p-5 shadow-xs space-y-1">
+              <span className="text-[10px] font-bold text-brand-text-dim uppercase tracking-wider block">Average Match Score</span>
+              <p className="text-3xl font-display font-bold text-brand-green">
+                {analysisHistory.length > 0 
+                  ? Math.round(analysisHistory.reduce((acc, curr) => acc + curr.score, 0) / analysisHistory.length) + "%"
+                  : "N/A"
+                }
+              </p>
+              <span className="text-[10px] text-brand-green font-bold bg-brand-green/10 px-2 py-0.5 rounded-full inline-block">
+                Verified Matches
+              </span>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Main grids: left list trackers, right regulatory checklists */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

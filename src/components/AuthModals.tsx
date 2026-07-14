@@ -235,10 +235,11 @@ interface JobSeekerSignupModalProps {
   onBack: () => void;
   onSwitchToLogin: () => void;
   onSignUp: (profile: any) => void;
+  onGoogleSignUp?: () => void;
   busy: boolean;
 }
 
-export function JobSeekerSignupModal({ onClose, onBack, onSwitchToLogin, onSignUp, busy }: JobSeekerSignupModalProps) {
+export function JobSeekerSignupModal({ onClose, onBack, onSwitchToLogin, onSignUp, onGoogleSignUp, busy }: JobSeekerSignupModalProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [headline, setHeadline] = useState("");
@@ -402,6 +403,30 @@ export function JobSeekerSignupModal({ onClose, onBack, onSwitchToLogin, onSignU
           >
             {busy ? "Please wait…" : "Create account"}
           </button>
+
+          {onGoogleSignUp && (
+            <div className="space-y-3 mt-2">
+              <div className="flex items-center justify-center gap-2">
+                <span className="h-[1px] w-full bg-brand-border/60" />
+                <span className="text-[10px] text-brand-text-dim font-bold uppercase tracking-wider whitespace-nowrap">Or use Gmail</span>
+                <span className="h-[1px] w-full bg-brand-border/60" />
+              </div>
+              <button
+                type="button"
+                onClick={onGoogleSignUp}
+                disabled={busy}
+                className="w-full py-3 rounded-full border border-brand-border bg-white text-brand-text text-sm font-bold tracking-wide hover:bg-brand-bg-alt flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 24 0 24s.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                </svg>
+                <span>Sign up with Google</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <p style={{ color: colors.textDim, fontSize: "0.8rem" }} className="mt-4 text-center font-semibold">
@@ -419,10 +444,11 @@ interface LoginModalProps {
   onClose: () => void;
   onSwitchToChoice: () => void;
   onLogIn: (credentials: any) => void;
+  onGoogleLogin?: () => void;
   busy: boolean;
 }
 
-export function LoginModal({ onClose, onSwitchToChoice, onLogIn, busy }: LoginModalProps) {
+export function LoginModal({ onClose, onSwitchToChoice, onLogIn, onGoogleLogin, busy }: LoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -562,6 +588,30 @@ export function LoginModal({ onClose, onSwitchToChoice, onLogIn, busy }: LoginMo
           >
             {busy ? "Please wait…" : "Log in"}
           </button>
+
+          {onGoogleLogin && (
+            <div className="space-y-3 mt-2">
+              <div className="flex items-center justify-center gap-2">
+                <span className="h-[1px] w-full bg-brand-border/60" />
+                <span className="text-[10px] text-brand-text-dim font-bold uppercase tracking-wider whitespace-nowrap">Or log in with</span>
+                <span className="h-[1px] w-full bg-brand-border/60" />
+              </div>
+              <button
+                type="button"
+                onClick={onGoogleLogin}
+                disabled={busy}
+                className="w-full py-3 rounded-full border border-brand-border bg-white text-brand-text text-sm font-bold tracking-wide hover:bg-brand-bg-alt flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                </svg>
+                <span>Continue with Gmail</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <p style={{ color: colors.textDim, fontSize: "0.8rem" }} className="mt-4 text-center font-semibold">
@@ -579,9 +629,10 @@ interface RoleChoiceModalProps {
   onClose: () => void;
   onChoose: (role: "Job Seeker" | "Employer") => void;
   onSwitchToLogin: () => void;
+  onGoogleAuth?: () => void;
 }
 
-export function RoleChoiceModal({ onClose, onChoose, onSwitchToLogin }: RoleChoiceModalProps) {
+export function RoleChoiceModal({ onClose, onChoose, onSwitchToLogin, onGoogleAuth }: RoleChoiceModalProps) {
   return (
     <div className="fixed inset-0 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-4 py-6 sm:py-10 z-50" style={{ background: "rgba(20,20,20,0.6)" }} onClick={onClose}>
       <div
@@ -624,6 +675,29 @@ export function RoleChoiceModal({ onClose, onChoose, onSwitchToLogin }: RoleChoi
               <p style={{ color: colors.textDim, fontSize: "0.78rem" }} className="font-semibold leading-normal">Post jobs and find candidates.</p>
             </div>
           </button>
+
+          {onGoogleAuth && (
+            <div className="space-y-3 mt-1">
+              <div className="flex items-center justify-center gap-2">
+                <span className="h-[1px] w-full bg-brand-border/60" />
+                <span className="text-[10px] text-brand-text-dim font-bold uppercase tracking-wider whitespace-nowrap">Or sign up with</span>
+                <span className="h-[1px] w-full bg-brand-border/60" />
+              </div>
+              <button
+                type="button"
+                onClick={onGoogleAuth}
+                className="w-full py-3 rounded-full border border-brand-border bg-white text-brand-text text-sm font-bold tracking-wide hover:bg-brand-bg-alt flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                </svg>
+                <span>Continue with Gmail</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <p style={{ color: colors.textDim, fontSize: "0.8rem" }} className="mt-4 text-center font-semibold">

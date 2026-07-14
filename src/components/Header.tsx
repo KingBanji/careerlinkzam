@@ -1,4 +1,4 @@
-import { Briefcase, FileText, BrainCircuit, MessageSquare, PlusCircle, User, LogOut, Users, ShieldCheck, Info, Lock } from "lucide-react";
+import { Briefcase, FileText, BrainCircuit, MessageSquare, PlusCircle, User, LogOut, Users, ShieldCheck, Info } from "lucide-react";
 
 interface HeaderProps {
   currentTab: string;
@@ -45,19 +45,15 @@ export default function Header({
             <div>
               <span className="text-xl font-display font-bold tracking-tight text-brand-green flex items-center">
                 CareerLink<span className="text-brand-orange">Zambia</span>
-                <button
-                  type="button"
+                <span 
                   onClick={(e) => {
                     e.stopPropagation();
                     onAdminTriggerClick();
                   }}
-                  className="ml-2 p-1 text-slate-300 hover:text-brand-green bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-lg transition-all cursor-pointer"
+                  className="ml-2 bg-brand-green/10 text-brand-green text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full border border-brand-green/25 hidden sm:inline-block cursor-pointer hover:bg-brand-green/25 active:scale-95 transition-all"
                   title="Admin Portal Access"
-                  id="secret-admin-trigger-logo"
+                  id="secret-admin-trigger-badge"
                 >
-                  <Lock size={11} className="text-brand-green/75" />
-                </button>
-                <span className="ml-2 bg-brand-green/10 text-brand-green text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full border border-brand-green/25 hidden sm:inline-block">
                   Professional
                 </span>
               </span>

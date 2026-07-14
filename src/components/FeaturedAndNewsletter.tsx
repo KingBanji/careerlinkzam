@@ -1,7 +1,14 @@
 import React, { useState } from "react";
-import { Building2, BookOpen, Mail, ArrowRight, Check, Smartphone, ShieldCheck, Heart } from "lucide-react";
+import { Building2, BookOpen, Mail, ArrowRight, Check, Smartphone, ShieldCheck, Heart, X, Clock } from "lucide-react";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
+
+// @ts-ignore
+import zanacoImg from "../assets/images/zanaco_bank_interview_1784019177226.jpg";
+// @ts-ignore
+import ngoImg from "../assets/images/ngo_health_careers_1784019190779.jpg";
+// @ts-ignore
+import agImg from "../assets/images/agribusiness_zambeef_1784019202031.jpg";
 
 interface FeaturedAndNewsletterProps {
   onCompanySelect?: (companyName: string) => void;
@@ -17,6 +24,7 @@ export default function FeaturedAndNewsletter({ onCompanySelect, onShowToast }: 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
+  const [selectedBlogPost, setSelectedBlogPost] = useState<any | null>(null);
 
   // Sample static data for Featured Companies
   const featuredCompanies = [
@@ -67,6 +75,13 @@ export default function FeaturedAndNewsletter({ onCompanySelect, onShowToast }: 
       category: "Interview Preparation",
       readTime: "5 min read",
       date: "July 12, 2026",
+      imageUrl: zanacoImg,
+      content: [
+        "Landing a coveted role at the Zambia National Commercial Bank (Zanaco) or other leading financial institutions like Atlas Mara, Stanbic, or ABSA Zambia requires a deep understanding of the local regulatory environment, market demands, and organizational culture.",
+        "Local hiring panels almost always ask about your familiarity with the Bank of Zambia (BoZ) regulations and the Zambia Revenue Authority (ZRA) statutory requirements. Be prepared to explain how you ensure strict compliance with anti-money laundering (AML) directives and Know Your Customer (KYC) standards.",
+        "Another critical factor is demonstrating a customer-centric mindset. Zanaco, as 'People's Bank', deeply values accessibility and financial inclusion. Highlighting projects where you directly improved customer satisfaction or simplified banking services for ordinary Zambians will set you apart from other candidates.",
+        "Pro Tip: During your interview, use the STAR method (Situation, Task, Action, Result) to describe your past achievements. Reference how you handled operational transitions or integrated digital solutions to optimize branch workflows, using local Kwacha (ZMW) metrics where possible to make your impact tangible."
+      ]
     },
     {
       id: "blog-2",
@@ -75,6 +90,13 @@ export default function FeaturedAndNewsletter({ onCompanySelect, onShowToast }: 
       category: "Sector Insights",
       readTime: "7 min read",
       date: "July 08, 2026",
+      imageUrl: ngoImg,
+      content: [
+        "Zambia's non-profit sector, centered in Lusaka, offers highly rewarding career paths with organizations like the Centre for Infectious Disease Research in Zambia (CIDRZ), USAID, Right to Care, and various UN agencies. However, entering this competitive sector requires targeted preparation.",
+        "First, certifications are incredibly vital. If you are aiming for healthcare or research roles, holding a valid Good Clinical Practice (GCP) certificate or Human Subjects Protection (HSP) training is a non-negotiable prerequisite. For administrative and finance positions, familiarity with international donor funding rules (such as USAID or Global Fund guidelines) will give you a massive advantage.",
+        "Second, specialize in Monitoring and Evaluation (M&E). Non-profits rely heavily on quantitative impact reporting to satisfy their donors. Being able to demonstrate expertise in tools like DHIS2, SPSS, or advanced Excel for tracking health delivery indicators can immediately make your profile highly attractive.",
+        "Lastly, cultural fit and adaptability are prized. NGOs seek professionals who can communicate effectively with community leaders, government stakeholders (like the Ministry of Health), and local partners. Ensure your CV highlights field work, stakeholder coordination, and local languages spoken."
+      ]
     },
     {
       id: "blog-3",
@@ -83,6 +105,13 @@ export default function FeaturedAndNewsletter({ onCompanySelect, onShowToast }: 
       category: "Job Hunting",
       readTime: "4 min read",
       date: "June 28, 2026",
+      imageUrl: agImg,
+      content: [
+        "Agribusiness is one of the fastest-growing sectors of the Zambian economy, driving diversification and food security. Leading companies like Zambeef Products, Alliance Grains, and Amatheon Agri are constantly in search of skilled professionals to optimize their large-scale operations in Chisamba, Mazabuka, and the Central Province.",
+        "Modern agribusiness is highly technical. Today, employers are looking for agricultural economists who can analyze market commodities, supply chain logistics managers who can navigate domestic and regional distribution, and experts in veterinary science or agronomy to maximize production yields.",
+        "A major trend is the integration of digital technology in farming. Precision agriculture—using drones for crop health analysis, GPS-guided tractors, and IoT sensors for soil moisture—is becoming standard. Demonstrating knowledge of smart farming tools can give you a distinct edge in your applications.",
+        "If you are applying for managerial roles, emphasize your experience with cost-saving measures, environmental sustainability practices, and team leadership in rural or semi-urban environments. This sector is highly active, resilient to global shocks, and offers excellent career growth paths."
+      ]
     },
   ];
 
@@ -200,14 +229,30 @@ export default function FeaturedAndNewsletter({ onCompanySelect, onShowToast }: 
           {blogPosts.map((post) => (
             <article
               key={post.id}
-              className="bg-white border border-brand-border rounded-2xl p-5 flex flex-col justify-between hover:shadow-xs transition-shadow"
+              className="bg-white border border-brand-border rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-shadow group cursor-pointer"
+              onClick={() => setSelectedBlogPost(post)}
             >
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-[10px] font-bold font-mono text-brand-orange uppercase tracking-wider">
-                  <span>{post.category}</span>
-                  <span className="text-brand-text-dim normal-case font-normal">{post.readTime}</span>
+                {/* Generated Blog Image */}
+                <div className="w-full h-44 rounded-xl overflow-hidden bg-slate-100 relative">
+                  <img
+                    src={post.imageUrl}
+                    alt={post.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    {post.category}
+                  </div>
                 </div>
-                <h3 className="text-base font-bold text-brand-text tracking-tight hover:text-brand-green transition-colors cursor-pointer">
+
+                <div className="flex items-center justify-between text-[10px] font-bold font-mono text-brand-orange uppercase tracking-wider pt-1">
+                  <span>{post.category}</span>
+                  <span className="text-brand-text-dim normal-case font-normal flex items-center gap-1">
+                    <Clock size={10} /> {post.readTime}
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-brand-text tracking-tight group-hover:text-brand-green transition-colors cursor-pointer">
                   {post.title}
                 </h3>
                 <p className="text-xs text-brand-text-dim leading-relaxed">
@@ -216,13 +261,82 @@ export default function FeaturedAndNewsletter({ onCompanySelect, onShowToast }: 
               </div>
               <div className="mt-5 pt-4 border-t border-brand-bg-alt flex items-center justify-between text-[11px] font-semibold text-brand-text-dim">
                 <span>{post.date}</span>
-                <button className="text-brand-green hover:text-brand-orange flex items-center gap-1 hover:underline text-[10px] font-bold uppercase tracking-wider">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedBlogPost(post);
+                  }}
+                  className="text-brand-green group-hover:text-brand-orange flex items-center gap-1 hover:underline text-[10px] font-bold uppercase tracking-wider cursor-pointer font-sans"
+                >
                   Read Article <ArrowRight size={12} />
                 </button>
               </div>
             </article>
           ))}
         </div>
+
+        {/* Detailed Blog Expansion Modal */}
+        {selectedBlogPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs" id="blog-modal">
+            <div className="bg-white rounded-3xl max-w-2xl w-full flex flex-col max-h-[90vh] shadow-2xl overflow-hidden relative border border-brand-border">
+              {/* Close Button top-right */}
+              <button
+                type="button"
+                onClick={() => setSelectedBlogPost(null)}
+                className="absolute top-4 right-4 z-10 p-2 text-white bg-slate-900/40 hover:bg-slate-900/70 rounded-full backdrop-blur-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Scrollable Container */}
+              <div className="overflow-y-auto flex-1">
+                {/* Header Image */}
+                <div className="relative h-56 sm:h-64 w-full bg-slate-100 flex-shrink-0">
+                  <img
+                    src={selectedBlogPost.imageUrl}
+                    alt={selectedBlogPost.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/30 to-transparent" />
+                  <div className="absolute bottom-5 left-5 right-5 sm:bottom-6 sm:left-6 sm:right-6">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-brand-orange text-white mb-2">
+                      {selectedBlogPost.category}
+                    </span>
+                    <h2 className="text-lg sm:text-2xl font-display font-extrabold text-white leading-tight">
+                      {selectedBlogPost.title}
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Body Content */}
+                <div className="p-5 sm:p-8 space-y-4">
+                  <div className="flex items-center justify-between text-xs font-mono text-brand-text-dim border-b border-brand-border pb-3.5">
+                    <span className="flex items-center gap-1"><Clock size={12} /> {selectedBlogPost.readTime}</span>
+                    <span>Published: {selectedBlogPost.date}</span>
+                  </div>
+
+                  <div className="space-y-4 text-xs sm:text-sm text-brand-text leading-relaxed font-sans font-medium">
+                    {selectedBlogPost.content?.map((paragraph: string, idx: number) => (
+                      <p key={idx}>{paragraph}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Fixed Footer */}
+              <div className="p-4 sm:px-8 border-t border-brand-border flex justify-end bg-brand-bg-alt/30 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBlogPost(null)}
+                  className="px-6 py-2 bg-brand-green hover:bg-brand-green-dark text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+                >
+                  Close Article
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 3. Paid Newsletter Subscription Section */}
